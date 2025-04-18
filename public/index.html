@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S3 File Sharing</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loading-circle">
+            <div class="cloud-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <header class="modern-header">
+            <div class="logo-container">
+                <img src="/logo-png.png" alt="S3 File Sharing Logo" class="logo">
+            </div>
+            <div class="header-content">
+                <h1>S3 File Sharing</h1>
+                <p>Upload, share, and manage your files securely in the cloud</p>
+            </div>
+        </header>
+        
+        <section class="upload-section">
+            <h2>Upload Files</h2>
+            <div class="upload-container">
+                <form id="upload-form">
+                    <div class="upload-box">
+                        <div class="file-input-container">
+                            <input type="file" id="file-input" name="file" required>
+                            <label for="file-input" class="file-label">
+                                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                                <span>Choose a File to Upload</span>
+                            </label>
+                        </div>
+                        <div class="supported-formats">
+                            <p>Accepted types: .pdf, .jpg, .png, .txt</p>
+                        </div>
+                    </div>
+                    <div id="file-info" class="file-info">
+                        <p>No file selected</p>
+                    </div>
+                    <div class="upload-progress-container">
+                        <p class="upload-status">Uploading...</p>
+                        <div class="progress-container">
+                            <div id="progress-bar" class="progress-bar"></div>
+                        </div>
+                        <p id="progress-percent">0%</p>
+                    </div>
+                    <button type="submit" id="upload-button" class="modern-button">Upload</button>
+                </form>
+            </div>
+            <div id="message" class="message"></div>
+        </section>
+        
+        <section class="files-section">
+            <div class="section-header">
+                <h2>My Files</h2>
+                <button id="refresh-btn" class="refresh-btn modern-button">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+            <div id="file-list" class="file-list">
+                <div class="loader"></div>
+            </div>
+        </section>
+
+        <section class="download-section">
+            <h2>Last Upload</h2>
+            <div id="download-link" class="download-link"></div>
+        </section>
+    </div>
+    
+    <footer>
+        <p>&copy; 2025 S3 File Sharing Service</p>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
