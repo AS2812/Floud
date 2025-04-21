@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # S3 File Server
 
 A Node.js Express server for uploading files to Amazon S3 and listing files.
@@ -56,3 +57,6 @@ Stores the file in S3 under the uploads/ prefix
 
 ### GET /files
 Returns a JSON array of all files in the S3 bucket under the uploads/ prefix
+=======
+# Floud
+>>>>>>> fe88fd1b55d019dae0d609b81b4fc05a43b228df
