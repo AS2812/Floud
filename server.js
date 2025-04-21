@@ -1,134 +1,132 @@
+require('dotenv').config();
+
 const express = require('express');
 const multer = require('multer');
 const AWSXRay = require('aws-xray-sdk');
 const path = require('path');
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const logger = require('./logger');
 const { uploadFileToS3, listFilesFromS3 } = require('./s3-service');
 
-// Initialize Express application
 const app = express();
 
-// Configure AWS X-Ray if not running locally
+// AWS X-Ray: capture HTTPS calls and open/close segments in production
 if (process.env.NODE_ENV !== 'development') {
   AWSXRay.captureHTTPsGlobal(require('http'));
   app.use(AWSXRay.express.openSegment('S3FileServer'));
 }
 
-// Configure multer for memory storage
+// Multer setup: memory storage with 5MB limit
 const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // limit to 5MB
-  }
-});
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
-
-// Serve logo file
-app.get('/logo-png.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'logo-png.png'));
-});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
 
-// GET /files - List all files in the S3 bucket's uploads/ directory
+// Serve logo file
+app.get('/logo-png.png', (req, res) => {
+  res.sendFile(path.join(__dirname, 'logo-png.png'));
+});
+
+// GET /files - list S3 objects under uploads/
 app.get('/files', async (req, res) => {
   try {
     const files = await listFilesFromS3();
-    res.status(200).json({ files });
-  } catch (error) {
-    logger.error(`Failed to list files: ${error.message}`);
-    res.status(500).json({ 
-      error: 'Failed to list files',
-      message: error.message 
-    });
+    res.json({ files });
+  } catch (err) {
+    logger.error(`Failed to list files: ${err.message}`);
+    res.status(500).json({ error: 'Failed to list files', message: err.message });
   }
 });
 
-// POST /upload - Upload file to S3
+// POST /upload - upload file to S3
 app.post('/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
-    logger.warn('No file provided in the request');
+    logger.warn('No file provided');
     return res.status(400).json({ error: 'No file provided' });
   }
 
   try {
     const result = await uploadFileToS3(req.file);
     res.status(201).json(result);
-  } catch (error) {
-    logger.error(`Failed to upload file: ${error.message}`);
-    res.status(500).json({ 
-      error: 'Failed to upload file',
-      message: error.message 
-    });
+  } catch (err) {
+    logger.error(`Upload error: ${err.message}`);
+    res.status(500).json({ error: 'Upload failed', message: err.message });
   }
 });
 
-// Serve files from S3
-app.get('/uploads/:filename', async (req, res) => {
+// Generate pre-signed URL for GET requests
+async function generatePresignedUrl(fileName) {
+  const bucket = process.env.S3_BUCKET;
+  const region = process.env.AWS_REGION;
+  const client = new S3Client({ region });
+  const command = new GetObjectCommand({ Bucket: bucket, Key: `uploads/${fileName}` });
+
   try {
-    const { GetObjectCommand } = require('@aws-sdk/client-s3');
-    const { S3Client } = require('@aws-sdk/client-s3');
-    const region = process.env.AWS_REGION || 'us-east-1';
-    const bucketName = process.env.S3_BUCKET || 'floud-file-upload-bucket';
-    const s3Client = new S3Client({ region });
-    
-    const filename = req.params.filename;
-    const key = `uploads/${filename}`;
-    
-    // Create GetObject command
-    const command = new GetObjectCommand({
-      Bucket: bucketName,
-      Key: key
-    });
-    
-    try {
-      // Get the object from S3
-      const data = await s3Client.send(command);
-      
-      // Set headers for the response
-      res.set('Content-Type', data.ContentType);
-      res.set('Content-Length', data.ContentLength);
-      
-      // Stream the file data to the response
-      data.Body.pipe(res);
-    } catch (err) {
-      logger.error(`Error getting S3 object: ${err.message}`);
-      res.status(404).send('File not found');
-    }
-  } catch (error) {
-    logger.error(`Error serving S3 file: ${error.message}`);
-    res.status(500).send('Error retrieving file');
+    return await getSignedUrl(client, command, { expiresIn: 3600 });
+  } catch (err) {
+    logger.error(`Presign URL error: ${err.message}`);
+    throw err;
+  }
+}
+
+// GET /api/file-url/:filename - return JSON with a presigned URL
+app.get('/api/file-url/:filename', async (req, res) => {
+  try {
+    const url = await generatePresignedUrl(req.params.filename);
+    res.json({ url });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate URL', message: err.message });
   }
 });
 
-// Error handling middleware
+// GET /uploads/:filename - proxy S3 object stream
+app.get('/uploads/:filename', async (req, res) => {
+  const bucket = process.env.S3_BUCKET;
+  const region = process.env.AWS_REGION;
+  const client = new S3Client({ region });
+  const command = new GetObjectCommand({ Bucket: bucket, Key: `uploads/${req.params.filename}` });
+
+  try {
+    const data = await client.send(command);
+    res.set('Content-Type', data.ContentType);
+    res.set('Content-Length', data.ContentLength);
+    data.Body.pipe(res);
+  } catch (err) {
+    if (err.$metadata?.httpStatusCode === 404) {
+      res.status(404).send('File not found');
+    } else {
+      logger.error(`Stream error: ${err.message}`);
+      res.status(500).send('Error retrieving file');
+    }
+  }
+});
+
+// Error handler
 app.use((err, req, res, next) => {
   logger.error(`Unhandled error: ${err.message}`);
-  res.status(500).json({
-    error: 'Internal Server Error',
-    message: err.message
-  });
+  res.status(500).json({ error: 'Internal Server Error', message: err.message });
 });
 
-// Close X-Ray segment if not running locally
+// Close X-Ray segment
 if (process.env.NODE_ENV !== 'development') {
   app.use(AWSXRay.express.closeSegment());
 }
 
-// Start the server if not imported as a module
+// Start server if not imported
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`);
+  const HOST = '0.0.0.0';
+  app.listen(PORT, HOST, () => {
+    logger.info(`Server running at http://${HOST}:${PORT}`);
   });
 }
 
