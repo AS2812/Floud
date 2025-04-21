@@ -220,6 +220,10 @@ function displayFiles(files) {
                 </div>
             </div>
             <div class="file-actions">
+                <button type="button" class="select-btn" data-key="${file.key}" 
+                    title="Select File">
+                    <i class="fas fa-check-circle"></i>
+                </button>
                 <button type="button" class="download-btn" data-key="${file.key}" 
                     title="Download File">
                     <i class="fas fa-download"></i>
@@ -232,6 +236,16 @@ function displayFiles(files) {
         `;
         
         // Add event listeners for actions
+        const selectBtn = fileItem.querySelector('.select-btn');
+        selectBtn.addEventListener('click', () => {
+            // Select file and show in Last Upload section
+            const filename = file.key.split('/').pop();
+            const fileUrl = `${window.location.origin}/uploads/${filename}`;
+            createDownloadLinkFromUrl(fileUrl, filename);
+            showMessage('File selected!', 'success');
+        });
+
+        // Add copy link button event listener
         const copyBtn = fileItem.querySelector('.copy-link-btn');
         copyBtn.addEventListener('click', () => {
             generateShareLink(file.key);
@@ -248,20 +262,22 @@ function displayFiles(files) {
 }
 
 function generateShareLink(fileKey) {
-    // In a production app, you would fetch a pre-signed URL from your server here
-    // For demo purposes, we'll just create a link with the file key
+    // Get the file name from the key
     const filename = fileKey.split('/').pop();
-    const demoLink = `${window.location.origin}/uploads/${filename}`;
+    
+    // Create a direct link to the file
+    const fileUrl = `${window.location.origin}/uploads/${filename}`;
     
     // Show the link in the download section
-    createDownloadLinkFromUrl(demoLink, filename);
+    createDownloadLinkFromUrl(fileUrl, filename);
     
+    // Copy the link to clipboard
+    copyToClipboard(fileUrl);
     showMessage('Link copied to clipboard!', 'success');
 }
 
 function createDownloadLink(uploadResult) {
-    // In a real app with S3, you might want to generate a pre-signed URL on the server
-    // For this demo, we'll just use the file name
+    // Create a URL to the uploaded file
     const fileUrl = `${window.location.origin}/uploads/${uploadResult.fileName}`;
     createDownloadLinkFromUrl(fileUrl, uploadResult.fileName);
 }
@@ -282,6 +298,9 @@ function createDownloadLinkFromUrl(url, fileName) {
             <button type="button" class="modern-button" onclick="window.open('${url}', '_blank')">
                 <i class="fas fa-eye"></i> View File
             </button>
+            <button type="button" class="modern-button delete-btn" data-filename="${fileName}">
+                <i class="fas fa-trash"></i> Delete File
+            </button>
         </div>
     `;
     
@@ -291,19 +310,49 @@ function createDownloadLinkFromUrl(url, fileName) {
         copyToClipboard(url);
         showMessage('Link copied to clipboard!', 'success');
     });
+    
+    // Add delete functionality
+    const deleteBtn = downloadLink.querySelector('.delete-btn');
+    deleteBtn.addEventListener('click', () => {
+        deleteFile(fileName);
+    });
 }
 
 function downloadFile(fileKey) {
     const filename = fileKey.split('/').pop();
     const fileUrl = `${window.location.origin}/uploads/${filename}`;
     
-    // Show the file in the Last Upload section
-    createDownloadLinkFromUrl(fileUrl, filename);
+    // Create a temporary link element and trigger download
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = fileUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     
-    // Open the file in a new tab
-    window.open(fileUrl, '_blank');
-    
-    showMessage('Opening file in new tab!', 'success');
+    showMessage('Downloading file!', 'success');
+}
+
+function deleteFile(fileName) {
+    // Make DELETE request to server
+    fetch(`/delete/${fileName}`, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to delete file');
+        }
+        return response.json();
+    })
+    .then(data => {
+        showMessage('File deleted successfully!', 'success');
+        downloadLink.innerHTML = '';
+        loadFiles(); // Refresh file list
+    })
+    .catch(error => {
+        showMessage(`Error deleting file: ${error.message}`, 'error');
+    });
 }
 
 function copyToClipboard(text) {

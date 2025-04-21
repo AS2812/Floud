@@ -298,6 +298,14 @@ h2::after {
     left: 100%;
 }
 
+.delete-btn {
+    background: linear-gradient(45deg, #c0392b, #e74c3c);
+}
+
+.delete-btn:hover {
+    background: linear-gradient(45deg, #e74c3c, #f5b7b1);
+}
+
 #upload-button {
     width: 100%;
     margin-top: 1rem;
@@ -440,7 +448,7 @@ h2::after {
 
 .file-actions button {
     padding: 0.5rem;
-    background-color: transparent;
+    background-color: rgba(155, 89, 182, 0.1);
     color: var(--primary-light);
     font-size: 1.2rem;
     transition: all 0.3s ease;
@@ -450,12 +458,24 @@ h2::after {
     display: flex;
     align-items: center;
     justify-content: center;
+    border: none;
+    cursor: pointer;
 }
 
 .file-actions button:hover {
     color: var(--primary-color);
-    background-color: rgba(155, 89, 182, 0.1);
+    background-color: rgba(155, 89, 182, 0.2);
     transform: scale(1.1);
+}
+
+.select-btn {
+    background-color: rgba(46, 204, 113, 0.1) !important;
+    color: var(--success-color) !important;
+}
+
+.select-btn:hover {
+    background-color: rgba(46, 204, 113, 0.2) !important;
+    color: var(--success-color) !important;
 }
 
 .no-files {
@@ -583,6 +603,10 @@ footer {
         border-radius: 0 0 var(--border-radius) var(--border-radius);
         width: 100%;
         padding: 0.8rem;
+    }
+    
+    .download-actions {
+        flex-direction: column;
     }
 }
 

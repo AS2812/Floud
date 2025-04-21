@@ -4,7 +4,7 @@ const express = require('express');
 const multer = require('multer');
 const AWSXRay = require('aws-xray-sdk');
 const path = require('path');
-const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { S3Client, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const logger = require('./logger');
 const { uploadFileToS3, listFilesFromS3 } = require('./s3-service');
@@ -31,9 +31,21 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
 
-// Serve logo file
+// Serve logo file from multiple locations for redundancy
 app.get('/logo-png.png', (req, res) => {
-  res.sendFile(path.join(__dirname, 'logo-png.png'));
+  const logoPath = path.join(__dirname, 'logo-png.png');
+  const fallbackPath = path.join(__dirname, 'public', 'logo-png.png');
+  
+  res.sendFile(logoPath, (err) => {
+    if (err) {
+      res.sendFile(fallbackPath, (fallbackErr) => {
+        if (fallbackErr) {
+          logger.error(`Failed to serve logo: ${fallbackErr.message}`);
+          res.status(404).send('Logo not found');
+        }
+      });
+    }
+  });
 });
 
 // GET /files - list S3 objects under uploads/
@@ -60,6 +72,28 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   } catch (err) {
     logger.error(`Upload error: ${err.message}`);
     res.status(500).json({ error: 'Upload failed', message: err.message });
+  }
+});
+
+// DELETE /delete/:filename - Delete file from S3
+app.delete('/delete/:filename', async (req, res) => {
+  const fileName = req.params.filename;
+  const bucket = process.env.S3_BUCKET;
+  const region = process.env.AWS_REGION;
+  const client = new S3Client({ region });
+  
+  try {
+    const command = new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: `uploads/${fileName}`
+    });
+    
+    await client.send(command);
+    logger.info(`File deleted successfully: ${fileName}`);
+    res.json({ message: 'File deleted successfully' });
+  } catch (err) {
+    logger.error(`Delete error: ${err.message}`);
+    res.status(500).json({ error: 'Failed to delete file', message: err.message });
   }
 });
 
