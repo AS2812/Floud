@@ -72,6 +72,44 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// Serve files from S3
+app.get('/uploads/:filename', async (req, res) => {
+  try {
+    const { GetObjectCommand } = require('@aws-sdk/client-s3');
+    const { S3Client } = require('@aws-sdk/client-s3');
+    const region = process.env.AWS_REGION || 'us-east-1';
+    const bucketName = process.env.S3_BUCKET || 'floud-file-upload-bucket';
+    const s3Client = new S3Client({ region });
+    
+    const filename = req.params.filename;
+    const key = `uploads/${filename}`;
+    
+    // Create GetObject command
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key
+    });
+    
+    try {
+      // Get the object from S3
+      const data = await s3Client.send(command);
+      
+      // Set headers for the response
+      res.set('Content-Type', data.ContentType);
+      res.set('Content-Length', data.ContentLength);
+      
+      // Stream the file data to the response
+      data.Body.pipe(res);
+    } catch (err) {
+      logger.error(`Error getting S3 object: ${err.message}`);
+      res.status(404).send('File not found');
+    }
+  } catch (error) {
+    logger.error(`Error serving S3 file: ${error.message}`);
+    res.status(500).send('Error retrieving file');
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   logger.error(`Unhandled error: ${err.message}`);

@@ -21,6 +21,7 @@
     --border-radius: 12px;
     --box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
     --transition: all 0.4s ease;
+    
 }
 
 body {
@@ -432,6 +433,11 @@ h2::after {
     color: var(--text-secondary);
 }
 
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
 .file-actions button {
     padding: 0.5rem;
     background-color: transparent;
@@ -506,6 +512,22 @@ h2::after {
 .copy-btn i {
     margin: 0;
     font-size: 1.1rem;
+}
+
+.download-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.download-actions .modern-button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    text-decoration: none;
 }
 
 /* Footer */

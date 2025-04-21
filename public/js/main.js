@@ -220,7 +220,11 @@ function displayFiles(files) {
                 </div>
             </div>
             <div class="file-actions">
-                <button type="button" class="copy-link-btn" data-filename="${fileName}" 
+                <button type="button" class="download-btn" data-key="${file.key}" 
+                    title="Download File">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button type="button" class="copy-link-btn" data-key="${file.key}" 
                     title="Copy Link">
                     <i class="fas fa-link"></i>
                 </button>
@@ -232,7 +236,13 @@ function displayFiles(files) {
         copyBtn.addEventListener('click', () => {
             generateShareLink(file.key);
         });
-        
+
+        // Add download button event listener
+        const downloadBtn = fileItem.querySelector('.download-btn');
+        downloadBtn.addEventListener('click', () => {
+            downloadFile(file.key);
+        });
+
         fileList.appendChild(fileItem);
     });
 }
@@ -265,6 +275,14 @@ function createDownloadLinkFromUrl(url, fileName) {
                 <i class="fas fa-copy"></i>
             </button>
         </div>
+        <div class="download-actions" style="margin-top:1rem;">
+            <a href="${url}" download="${fileName}" class="modern-button" target="_blank">
+                <i class="fas fa-download"></i> Download File
+            </a>
+            <button type="button" class="modern-button" onclick="window.open('${url}', '_blank')">
+                <i class="fas fa-eye"></i> View File
+            </button>
+        </div>
     `;
     
     // Add copy to clipboard functionality
@@ -273,6 +291,19 @@ function createDownloadLinkFromUrl(url, fileName) {
         copyToClipboard(url);
         showMessage('Link copied to clipboard!', 'success');
     });
+}
+
+function downloadFile(fileKey) {
+    const filename = fileKey.split('/').pop();
+    const fileUrl = `${window.location.origin}/uploads/${filename}`;
+    
+    // Show the file in the Last Upload section
+    createDownloadLinkFromUrl(fileUrl, filename);
+    
+    // Open the file in a new tab
+    window.open(fileUrl, '_blank');
+    
+    showMessage('Opening file in new tab!', 'success');
 }
 
 function copyToClipboard(text) {
