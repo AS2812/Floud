@@ -25,7 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }, 3000);
     
+    // Load files and last upload info
     loadFiles();
+    loadLastUpload();
+    enhanceFileListUI();
     
     fileInput.addEventListener('change', handleFileSelect);
     uploadForm.addEventListener('submit', handleFormSubmit);
@@ -118,10 +121,18 @@ function uploadFile(file) {
     // Handle completion
     xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-            const response = JSON.parse(xhr.responseText);
-            showMessage('File uploaded successfully!', 'success');
-            createDownloadLink(response);
-            loadFiles(); // Refresh file list
+            try {
+                const response = JSON.parse(xhr.responseText);
+                showMessage('File uploaded successfully!', 'success');
+                createDownloadLink(response);
+                loadFiles(); // Refresh file list
+                
+                // Log successful upload
+                console.log('File uploaded successfully:', response);
+            } catch (e) {
+                console.error('Error parsing upload response:', e);
+                showMessage('File uploaded but could not display details', 'warning');
+            }
         } else {
             let errorMessage = 'Upload failed';
             try {
@@ -137,7 +148,7 @@ function uploadFile(file) {
     
     // Handle errors
     xhr.addEventListener('error', () => {
-        showMessage('Network error occurred', 'error');
+        showMessage('Network error occurred during upload', 'error');
         resetUploadForm();
     });
     
@@ -150,6 +161,27 @@ function uploadFile(file) {
     // Send the request
     xhr.open('POST', '/upload', true);
     xhr.send(formData);
+    
+    console.log('Upload request sent for file:', file.name);
+}
+
+// New function to enhance the file list UI
+function enhanceFileListUI() {
+    // Add scroll detection for empty list as well
+    if (fileList) {
+        fileList.addEventListener('scroll', function() {
+            if (this.scrollTop > 0) {
+                this.classList.add('scrolled');
+            } else {
+                this.classList.remove('scrolled');
+            }
+        });
+    }
+    
+    // Add extra check to ensure the loading animation is working
+    if (document.querySelector('.loader')) {
+        document.querySelector('.loader').style.display = 'block';
+    }
 }
 
 function resetUploadForm() {
@@ -349,6 +381,7 @@ function deleteFile(fileName) {
         showMessage('File deleted successfully!', 'success');
         downloadLink.innerHTML = '';
         loadFiles(); // Refresh file list
+        loadLastUpload(); // Reload last upload info
     })
     .catch(error => {
         showMessage(`Error deleting file: ${error.message}`, 'error');
@@ -421,4 +454,35 @@ function formatDate(dateString) {
         month: 'short', 
         day: 'numeric' 
     });
+}
+
+// New function to load the last uploaded file
+function loadLastUpload() {
+    fetch('/api/last-upload')
+        .then(response => {
+            if (response.status === 404) {
+                // No files uploaded yet, nothing to display
+                return null;
+            }
+            if (!response.ok) {
+                throw new Error('Failed to fetch last upload');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data) {
+                const fileUrl = `${window.location.origin}/uploads/${data.fileName}`;
+                createDownloadLinkFromUrl(fileUrl, data.fileName);
+                
+                if (data.uploadDate) {
+                    const uploadTimeElement = document.createElement('p');
+                    uploadTimeElement.className = 'upload-time';
+                    uploadTimeElement.textContent = `Uploaded on ${formatDate(data.uploadDate)}`;
+                    downloadLink.prepend(uploadTimeElement);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading last upload:', error);
+        });
 }

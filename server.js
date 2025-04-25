@@ -7,7 +7,7 @@ const path = require('path');
 const { S3Client, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const logger = require('./logger');
-const { uploadFileToS3, listFilesFromS3 } = require('./s3-service');
+const { uploadFileToS3, listFilesFromS3, deleteFileFromS3, getLastUploadedFile, setLastUploadedFile } = require('./s3-service');
 
 const app = express();
 
@@ -34,16 +34,11 @@ app.get('/health', (req, res) => {
 // Serve logo file from multiple locations for redundancy
 app.get('/logo-png.png', (req, res) => {
   const logoPath = path.join(__dirname, 'logo-png.png');
-  const fallbackPath = path.join(__dirname, 'public', 'logo-png.png');
   
   res.sendFile(logoPath, (err) => {
     if (err) {
-      res.sendFile(fallbackPath, (fallbackErr) => {
-        if (fallbackErr) {
-          logger.error(`Failed to serve logo: ${fallbackErr.message}`);
-          res.status(404).send('Logo not found');
-        }
-      });
+      logger.error(`Failed to serve logo: ${err.message}`);
+      res.status(404).send('Logo not found');
     }
   });
 });
@@ -68,6 +63,9 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
   try {
     const result = await uploadFileToS3(req.file);
+    logger.info(`File uploaded successfully: ${JSON.stringify(result)}`);
+    // Store the last uploaded file info
+    setLastUploadedFile(result);
     res.status(201).json(result);
   } catch (err) {
     logger.error(`Upload error: ${err.message}`);
@@ -75,22 +73,28 @@ app.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// GET /api/last-upload - get the most recently uploaded file
+app.get('/api/last-upload', (req, res) => {
+  const lastUpload = getLastUploadedFile();
+  if (lastUpload) {
+    res.json(lastUpload);
+  } else {
+    res.status(404).json({ error: 'No files have been uploaded yet' });
+  }
+});
+
 // DELETE /delete/:filename - Delete file from S3
 app.delete('/delete/:filename', async (req, res) => {
   const fileName = req.params.filename;
-  const bucket = process.env.S3_BUCKET;
-  const region = process.env.AWS_REGION;
-  const client = new S3Client({ region });
   
   try {
-    const command = new DeleteObjectCommand({
-      Bucket: bucket,
-      Key: `uploads/${fileName}`
-    });
-    
-    await client.send(command);
-    logger.info(`File deleted successfully: ${fileName}`);
-    res.json({ message: 'File deleted successfully' });
+    const result = await deleteFileFromS3(fileName);
+    // If we deleted the last uploaded file, clear that info
+    const lastUpload = getLastUploadedFile();
+    if (lastUpload && lastUpload.fileName === fileName) {
+      setLastUploadedFile(null);
+    }
+    res.json(result);
   } catch (err) {
     logger.error(`Delete error: ${err.message}`);
     res.status(500).json({ error: 'Failed to delete file', message: err.message });

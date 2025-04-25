@@ -399,8 +399,44 @@ h2::after {
 
 .file-list {
     min-height: 200px;
+    max-height: 400px; /* Set maximum height to enable scrolling */
+    overflow-y: auto; /* Enable vertical scrolling */
+    padding-right: 5px; /* Add padding for scrollbar */
+    margin-bottom: 1rem;
+    border-radius: var(--border-radius);
+    background-color: rgba(33, 33, 33, 0.4);
+    position: relative;
+    transition: all 0.3s ease;
 }
 
+/* Modern scrollbar styling for WebKit browsers (Chrome, Safari, Edge) */
+.file-list::-webkit-scrollbar {
+    width: 8px; /* Width of the scrollbar */
+}
+
+.file-list::-webkit-scrollbar-track {
+    background: rgba(155, 89, 182, 0.1); /* Track color */
+    border-radius: 10px;
+    margin: 5px 0;
+}
+
+.file-list::-webkit-scrollbar-thumb {
+    background: rgba(155, 89, 182, 0.5); /* Handle color */
+    border-radius: 10px;
+    transition: background 0.3s ease;
+}
+
+.file-list::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color); /* Handle color on hover */
+}
+
+/* Firefox scrollbar styling */
+.file-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(155, 89, 182, 0.5) rgba(155, 89, 182, 0.1);
+}
+
+/* File item styling adjustments for scrolling */
 .file-item {
     display: flex;
     align-items: center;
@@ -478,6 +514,12 @@ h2::after {
     color: var(--success-color) !important;
 }
 
+/* Add shadow effect when scrolled */
+.file-list.scrolled {
+    box-shadow: inset 0 -10px 10px -10px rgba(0, 0, 0, 0.3);
+}
+
+/* Empty state styling */
 .no-files {
     text-align: center;
     color: var(--text-secondary);
@@ -607,39 +649,5 @@ footer {
     
     .download-actions {
         flex-direction: column;
-    }
-}
-
-/* Animation Keyframes */
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideInLeft {
-    from {
-        opacity: 0;
-        transform: translateX(-50px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes slideInRight {
-    from {
-        opacity: 0;
-        transform: translateX(50px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
     }
 }

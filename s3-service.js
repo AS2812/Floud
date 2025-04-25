@@ -1,4 +1,5 @@
-const { S3Client, PutObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+// JavaScript code for file upload and management application
+const { S3Client, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const logger = require('./logger');
 
 // Initialize the S3 client with fallback values
@@ -17,9 +18,12 @@ const s3Client = new S3Client({
 });
 
 // Get the bucket name from environment variables with fallback
-const bucketName = process.env.S3_BUCKET || 'demo-file-upload-bucket'; // Add default bucket name
+const bucketName = process.env.S3_BUCKET || 'floud-file-upload-bucket'; // Updated default bucket name
 
 logger.info(`S3 client initialized with region: ${region} and bucket: ${bucketName}`);
+
+// Variable to store the most recently uploaded file
+let lastUploadedFile = null;
 
 /**
  * Upload a file to S3
@@ -38,14 +42,21 @@ async function uploadFileToS3(file) {
     };
     
     const command = new PutObjectCommand(uploadParams);
-    const result = await s3Client.send(command);
+    const s3Result = await s3Client.send(command);
     
     logger.info(`File uploaded successfully: ${file.originalname}`);
-    return {
+    
+    const uploadResult = {
       fileName: file.originalname,
       s3Key: `uploads/${file.originalname}`,
-      etag: result.ETag
+      etag: s3Result.ETag,
+      uploadDate: new Date().toISOString()
     };
+    
+    // Update last uploaded file
+    lastUploadedFile = uploadResult;
+    
+    return uploadResult;
   } catch (error) {
     logger.error(`Error uploading file to S3: ${error.message}`);
     throw error;
@@ -82,7 +93,54 @@ async function listFilesFromS3() {
   }
 }
 
+/**
+ * Delete a file from S3
+ * @param {string} fileName - The name of the file to delete
+ * @returns {Promise<Object>} The result of the delete operation
+ */
+async function deleteFileFromS3(fileName) {
+  logger.info(`Deleting file ${fileName} from S3 bucket ${bucketName}`);
+  
+  try {
+    const deleteParams = {
+      Bucket: bucketName,
+      Key: `uploads/${fileName}`
+    };
+    
+    const command = new DeleteObjectCommand(deleteParams);
+    const result = await s3Client.send(command);
+    
+    logger.info(`File deleted successfully: ${fileName}`);
+    return {
+      fileName,
+      deleted: true
+    };
+  } catch (error) {
+    logger.error(`Error deleting file from S3: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Get the most recently uploaded file
+ * @returns {Object|null} The most recently uploaded file or null if none
+ */
+function getLastUploadedFile() {
+  return lastUploadedFile;
+}
+
+/**
+ * Set the most recently uploaded file
+ * @param {Object|null} fileInfo - The file information to set
+ */
+function setLastUploadedFile(fileInfo) {
+  lastUploadedFile = fileInfo;
+}
+
 module.exports = {
   uploadFileToS3,
-  listFilesFromS3
+  listFilesFromS3,
+  deleteFileFromS3,
+  getLastUploadedFile,
+  setLastUploadedFile
 };
